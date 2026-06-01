@@ -11,7 +11,8 @@ from typing import Any
 
 from PySide import QtCore
 
-from .commands import register_commands, schedule_toggle_sync
+from xmlrpc.server import SimpleXMLRPCServer
+
 from .fem_executor import run_fem_analysis as _run_fem_analysis
 from .gui_dispatch import (
     cleanup_waker,
@@ -20,12 +21,10 @@ from .gui_dispatch import (
     process_gui_tasks,
     request_shutdown,
 )
-from .ip_filter import FilteredXMLRPCServer, validate_allowed_ips
 from .object_factory import create_object_gui
 from .parts_library import get_parts_list, insert_part_from_library
 from .property_mapper import Object, set_object_property
 from .serialize import serialize_object
-from .settings import load_settings, save_settings
 from .view_manager import save_active_screenshot
 
 rpc_server_thread = None
@@ -141,7 +140,7 @@ class FreeCADRPC:
         """Start code execution in a background thread and return immediately.
 
         Use for long-running OCCT operations (fuse/cut/loft) that would otherwise
-        exceed the MCP timeout. The caller should poll a document object for
+        exceed the RPC timeout. The caller should poll a document object for
         completion status (e.g. check SessionState.Label via get_object).
         """
         output_buffer = io.StringIO()
@@ -169,7 +168,7 @@ class FreeCADRPC:
             finally:
                 _clear_status()
 
-        _set_status("MCP: running background task…")
+        _set_status("freecad-rpc: running background task…")
         threading.Thread(target=worker, daemon=True).start()
         return {"success": True, "message": "Code execution started in background."}
 
@@ -256,7 +255,7 @@ class FreeCADRPC:
             if active_view is None or not hasattr(active_view, "saveImage"):
                 view_type = type(active_view).__name__ if active_view is not None else "None"
                 FreeCAD.Console.PrintWarning(
-                    f"MCP RPC: view type '{view_type}' does not support screenshots\n"
+                    f"freecad-rpc: view type '{view_type}' does not support screenshots\n"
                 )
                 return False
             return save_active_screenshot(tmp_path, view_name, width, height, focus_object)
@@ -268,7 +267,7 @@ class FreeCADRPC:
                     return base64.b64encode(f.read()).decode("utf-8")
             if res is False:
                 return None
-            FreeCAD.Console.PrintWarning(f"MCP RPC: screenshot failed: {res}\n")
+            FreeCAD.Console.PrintWarning(f"freecad-rpc: screenshot failed: {res}\n")
             return None
         finally:
             if os.path.exists(tmp_path):
@@ -405,30 +404,24 @@ class FreeCADRPC:
         return save_active_screenshot(save_path, view_name, width, height, focus_object)
 
 
-def start_rpc_server(port=9875):
+HOST = "127.0.0.1"
+PORT = 9875
+
+
+def start_rpc_server(port: int = PORT):
+    """Start the XML-RPC server on localhost. Idempotent."""
     global rpc_server_thread, rpc_server_instance
 
     if rpc_server_instance:
-        return "RPC Server already running."
+        return f"RPC server already running at {HOST}:{port}."
 
-    settings = load_settings()
-    remote_enabled = settings.get("remote_enabled", False)
-    allowed_ips = settings.get("allowed_ips", "127.0.0.1")
-
-    if remote_enabled:
-        host = "0.0.0.0"
-    else:
-        host = "127.0.0.1"
-
-    rpc_server_instance = FilteredXMLRPCServer(
-        (host, port), allowed_ips_str=allowed_ips, allow_none=True, logRequests=False
+    rpc_server_instance = SimpleXMLRPCServer(
+        (HOST, port), allow_none=True, logRequests=False
     )
     rpc_server_instance.register_instance(FreeCADRPC())
 
     def server_loop():
-        FreeCAD.Console.PrintMessage(f"RPC Server started at {host}:{port}\n")
-        if remote_enabled:
-            FreeCAD.Console.PrintMessage(f"Remote connections enabled. Allowed IPs: {allowed_ips}\n")
+        FreeCAD.Console.PrintMessage(f"[freecad-rpc] server started at {HOST}:{port}\n")
         rpc_server_instance.serve_forever()
 
     rpc_server_thread = threading.Thread(target=server_loop, daemon=True)
@@ -437,13 +430,11 @@ def start_rpc_server(port=9875):
     init_waker()
     QtCore.QTimer.singleShot(500, process_gui_tasks)
 
-    msg = f"RPC Server started at {host}:{port}."
-    if remote_enabled:
-        msg += f" Allowed IPs: {allowed_ips}"
-    return msg
+    return f"RPC server started at {HOST}:{port}."
 
 
 def stop_rpc_server():
+    """Stop the RPC server. Used by hot_reload_addon; otherwise rarely needed."""
     global rpc_server_instance, rpc_server_thread
 
     if rpc_server_instance:
@@ -453,11 +444,7 @@ def stop_rpc_server():
         rpc_server_thread.join()
         rpc_server_instance = None
         rpc_server_thread = None
-        FreeCAD.Console.PrintMessage("RPC Server stopped.\n")
-        return "RPC Server stopped."
+        FreeCAD.Console.PrintMessage("[freecad-rpc] server stopped\n")
+        return "RPC server stopped."
 
-    return "RPC Server was not running."
-
-
-register_commands()
-schedule_toggle_sync()
+    return "RPC server was not running."

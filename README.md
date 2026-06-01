@@ -1,3 +1,29 @@
+# freecad-rpc-addon (fork of neka-nat/freecad-mcp)
+
+> **Fork notice — 2026-06-01**
+>
+> This is a personal fork that has diverged from the upstream neka-nat/freecad-mcp:
+> the **MCP server layer is no longer the primary interface**. We now use the
+> companion [`freecad-rpc`](https://github.com/pulpier/freecad-rpc) Python
+> library to talk to this add-on's XML-RPC server directly — no MCP, no Claude
+> Desktop required.
+>
+> **Changes vs. upstream:**
+> - **Add-on directory renamed** `FreeCADMCP` → `FreeCADRPC`.
+> - **Auto-start on localhost.** No workbench toolbar, no Start/Stop/Toggle
+>   commands, no settings file, no remote IP filter — the server starts when
+>   FreeCAD's GUI is up and binds to `127.0.0.1:9875`.
+> - **New endpoints:** `save_document(name, file_path=None)` and
+>   `close_document(name)`.
+> - The original MCP server (`src/freecad_mcp/`) still builds and works against
+>   this add-on; it just isn't the recommended client anymore.
+
+---
+
+The original README follows for reference.
+
+---
+
 [![MseeP.ai Security Assessment Badge](https://mseep.net/pr/neka-nat-freecad-mcp-badge.png)](https://mseep.ai/app/neka-nat-freecad-mcp)
 
 # FreeCAD MCP

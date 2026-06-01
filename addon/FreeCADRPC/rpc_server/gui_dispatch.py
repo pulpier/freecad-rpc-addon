@@ -15,7 +15,7 @@ Robustness and performance guarantees:
    waiting for the next 500 ms heartbeat tick. The 500 ms heartbeat is kept
    only as a fallback.
 3. Mouse-button guard: ``process_gui_tasks`` skips the current tick while
-   mouse buttons are held so MCP tasks cannot interrupt 3D navigation drags.
+   mouse buttons are held so freecad-rpc tasks cannot interrupt 3D navigation drags.
 4. Clean shutdown: the ``_SHUTDOWN`` sentinel sets a flag that suppresses the
    ``finally`` reschedule, so ``stop_rpc_server`` actually stops the loop.
 5. Exception isolation: exceptions inside a task are caught, logged, and
@@ -126,7 +126,7 @@ def process_gui_tasks(reschedule: bool = True) -> None:
         if app is not None:
             app.setOverrideCursor(QtCore.Qt.WaitCursor)
         if status_bar is not None:
-            status_bar.showMessage("MCP: processing…")
+            status_bar.showMessage("freecad-rpc: processing…")
         try:
             while not _rpc_request_queue.empty():
                 task = _rpc_request_queue.get()
@@ -137,7 +137,7 @@ def process_gui_tasks(reschedule: bool = True) -> None:
                     task()
                 except Exception as e:
                     FreeCAD.Console.PrintError(
-                        f"MCP RPC: unhandled exception in GUI task: {type(e).__name__}: {e}\n"
+                        f"freecad-rpc: unhandled exception in GUI task: {type(e).__name__}: {e}\n"
                         f"{traceback.format_exc()}"
                     )
         finally:
@@ -173,7 +173,7 @@ def dispatch_to_gui(task: Callable[[], Any], timeout: float = 60) -> Any:
             res = task()
         except Exception as e:
             FreeCAD.Console.PrintError(
-                f"MCP RPC: GUI task raised {type(e).__name__}: {e}\n"
+                f"freecad-rpc: GUI task raised {type(e).__name__}: {e}\n"
                 f"{traceback.format_exc()}"
             )
             res = f"{type(e).__name__}: {e}"
