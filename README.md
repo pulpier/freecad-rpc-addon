@@ -1,223 +1,120 @@
 # freecad-rpc-addon
 
-> **Fork notice — 2026-06-01**
->
-> Originally forked from [neka-nat/freecad-mcp](https://github.com/neka-nat/freecad-mcp)
-> as `pulpier/freecad-mcp`; renamed to `freecad-rpc-addon` to reflect that the
-> MCP server layer is no longer the primary interface. We now use the companion
-> [`freecad-rpc`](https://github.com/pulpier/freecad-rpc) Python library to talk
-> to this add-on's XML-RPC server directly — no MCP, no Claude Desktop required.
->
-> **Changes vs. upstream:**
-> - **Add-on directory renamed** `FreeCADMCP` → `FreeCADRPC`.
-> - **Auto-start on localhost.** No workbench toolbar, no Start/Stop/Toggle
->   commands, no settings file, no remote IP filter — the server starts when
->   FreeCAD's GUI is up and binds to `127.0.0.1:9875`.
-> - **New endpoints:** `save_document(name, file_path=None)` and
->   `close_document(name)`.
-> - The original MCP server (`src/freecad_mcp/`) still builds and works against
->   this add-on; it just isn't the recommended client anymore.
+A FreeCAD addon that runs an **XML-RPC server inside the FreeCAD GUI process**,
+so external Python clients can drive FreeCAD (create/edit/delete objects, save
+documents, take screenshots, run FEM, execute arbitrary Python on the GUI
+thread). Localhost-only, zero configuration, auto-starts when FreeCAD launches.
 
----
+The recommended client is [`freecad-rpc`](https://github.com/pulpier/freecad-rpc).
 
-The original README follows for reference.
+## Background
 
----
+Originally forked from [neka-nat/freecad-mcp](https://github.com/neka-nat/freecad-mcp)
+as `pulpier/freecad-mcp`. The upstream project bundles two pieces — a FreeCAD
+addon (XML-RPC server) and a Model Context Protocol wrapper for Claude Desktop.
+**This fork keeps only the addon.** The MCP layer, workbench UI, settings file,
+and remote-IP filtering are removed; install it and forget about it.
 
-[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/neka-nat-freecad-mcp-badge.png)](https://mseep.ai/app/neka-nat-freecad-mcp)
+## What's in this repo
 
-# FreeCAD MCP
+```
+addon/FreeCADRPC/         the addon you symlink into FreeCAD's Mod directory
+├── Init.py
+├── InitGui.py            QTimer.singleShot autostart on FreeCAD's GUI thread
+└── rpc_server/
+    ├── rpc_server.py     the XML-RPC server + FreeCADRPC handler class
+    ├── gui_dispatch.py   ferries work onto FreeCAD's GUI thread
+    ├── object_factory.py, property_mapper.py, serialize.py,
+    ├── view_manager.py, parts_library.py, fem_executor.py
+examples/
+└── cantilever_fem.py     end-to-end FEM smoke test (direct XML-RPC, no client lib)
+```
 
-This repository is a FreeCAD MCP that allows you to control FreeCAD from Claude Desktop.
-
-## Demo
-
-### Design a flange
-
-![demo](./assets/freecad_mcp4.gif)
-
-### Design a toy car
-
-![demo](./assets/make_toycar4.gif)
-
-### Design a part from 2D drawing
-
-#### Input 2D drawing
-
-![input](./assets/b9-1.png)
-
-#### Demo
-
-![demo](./assets/from_2ddrawing.gif)
-
-This is the conversation history.
-https://claude.ai/share/7b48fd60-68ba-46fb-bb21-2fbb17399b48
-
-## Install addon
-
-FreeCAD Addon directory is
-* Windows: `%APPDATA%\FreeCAD\Mod\`
-* Mac:
-  * FreeCAD 1.1: `~/Library/Application\ Support/FreeCAD/v1-1/Mod/`
-  * FreeCAD 1.0: `~/Library/Application\ Support/FreeCAD/v1-0/Mod/`
-* Linux:
-  * Ubuntu: `~/.FreeCAD/Mod/` or `~/snap/freecad/common/Mod/` (if you install FreeCAD from snap)
-  * Debian: `~/.local/share/FreeCAD/Mod`
-  * Arch / CachyOS (FreeCAD 1.1 from `extra/freecad`): `~/.local/share/FreeCAD/v1-1/Mod/`
-
-Please put `addon/FreeCADMCP` directory to the addon directory.
+## Install
 
 ```bash
-git clone https://github.com/neka-nat/freecad-mcp.git
-cd freecad-mcp
-
-# For Linux (Ubuntu/Debian)
-cp -r addon/FreeCADMCP ~/.FreeCAD/Mod/
-
-# For Linux (Arch/CachyOS, FreeCAD 1.1 from extra/freecad)
-mkdir -p ~/.local/share/FreeCAD/v1-1/Mod/
-cp -r addon/FreeCADMCP ~/.local/share/FreeCAD/v1-1/Mod/
-
-# For macOS (FreeCAD 1.1)
-cp -r addon/FreeCADMCP ~/Library/Application\ Support/FreeCAD/v1-1/Mod/
+git clone https://github.com/pulpier/freecad-rpc-addon.git
+cd freecad-rpc-addon
+git checkout add-save-close-document   # branch with save_document + close_document endpoints
 ```
 
-When you install addon, you need to restart FreeCAD.
-You can select "MCP Addon" from Workbench list and use it.
+Symlink the addon into FreeCAD's Mod directory:
 
-![workbench_list](./assets/workbench_list.png)
-
-And you can start RPC server by "Start RPC Server" command in "FreeCAD MCP" toolbar.
-
-![start_rpc_server](./assets/start_rpc_server.png)
-
-### Auto-Start RPC Server
-
-By default, the RPC server must be started manually each time FreeCAD opens. To start it automatically:
-
-1. Open the **FreeCAD MCP** menu (switch to the MCP Addon workbench first)
-2. Check **Auto-Start Server**
-
-The setting is saved to `freecad_mcp_settings.json` and persists across sessions. On the next FreeCAD launch, the RPC server will start automatically once the application finishes loading.
-
-You can disable it at any time by unchecking **Auto-Start Server** in the same menu.
-
-## Setting up Claude Desktop
-
-Pre-installation of the [uvx](https://docs.astral.sh/uv/guides/tools/) is required.
-
-And you need to edit Claude Desktop config file, `claude_desktop_config.json`.
-
-For user.
-
-```json
-{
-  "mcpServers": {
-    "freecad": {
-      "command": "uvx",
-      "args": [
-        "freecad-mcp"
-      ]
-    }
-  }
-}
-```
-
-If you want to save token, you can set `only_text_feedback` to `true` and use only text feedback.
-
-```json
-{
-  "mcpServers": {
-    "freecad": {
-      "command": "uvx",
-      "args": [
-        "freecad-mcp",
-        "--only-text-feedback"
-      ]
-    }
-  }
-}
-```
-
-
-For developer.
-First, you need clone this repository.
+| OS | Path |
+|---|---|
+| **macOS, FreeCAD 1.1** | `~/Library/Application Support/FreeCAD/v1-1/Mod/` |
+| **macOS, FreeCAD 1.0** | `~/Library/Application Support/FreeCAD/Mod/` |
+| **Linux** | `~/.local/share/FreeCAD/Mod/` |
+| **Windows** | `%APPDATA%\FreeCAD\Mod\` |
 
 ```bash
-git clone https://github.com/neka-nat/freecad-mcp.git
+# macOS FreeCAD 1.1:
+ln -s "$PWD/addon/FreeCADRPC" ~/Library/Application\ Support/FreeCAD/v1-1/Mod/FreeCADRPC
 ```
 
-```json
-{
-  "mcpServers": {
-    "freecad": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/freecad-mcp/",
-        "run",
-        "freecad-mcp"
-      ]
-    }
-  }
-}
+Restart FreeCAD. You should see in the report view:
+
+```
+[freecad-rpc] RPC server started at 127.0.0.1:9875.
 ```
 
-## Remote Connections
+There is **no menu, no toolbar, no settings**. The server starts on launch and
+stays up for the FreeCAD session.
 
-By default the RPC server does not accept remote connections and listens on `localhost`. To control FreeCAD from another machine on your network:
+## Verify
 
-### 1. Enable remote connections in FreeCAD
+Using the [`freecad-rpc`](https://github.com/pulpier/freecad-rpc) Python client:
 
-In the **FreeCAD MCP** toolbar:
-
-1. Check **Remote Connections** — the RPC server will bind to `0.0.0.0` (all interfaces) on the next restart. For security reasons, it only accepts connections from the IP addresses or CIDR subnets specified in the **Allowed IPs** field. By default this is `127.0.0.1`.
-2. Click **Configure Allowed IPs** and enter a comma-separated list of IP addresses or CIDR subnets that are allowed to connect, e.g.:
-
-   ```
-   192.168.1.100, 10.0.0.0/24
-   ```
-
-   `127.0.0.1` is always the default. Invalid entries are rejected with an error dialog. Restart the RPC server after changing these settings.
-
-### 2. Point the MCP server at the remote host
-
-Pass the `--host` flag with the IP address or hostname of the machine running FreeCAD:
-
-```json
-{
-  "mcpServers": {
-    "freecad": {
-      "command": "uvx",
-      "args": [
-        "freecad-mcp",
-        "--host", "192.168.1.100"
-      ]
-    }
-  }
-}
+```python
+from freecad_rpc import FreeCADClient
+fc = FreeCADClient()
+assert fc.ping()
+print(fc.list_documents())
 ```
 
-The `--host` value is validated on startup — it must be a valid IPv4/IPv6 address or hostname.
+Or directly with `xmlrpc.client`:
 
-## Tools
+```python
+import xmlrpc.client
+s = xmlrpc.client.ServerProxy("http://127.0.0.1:9875")
+assert s.ping()
+print(s.list_documents())
+```
 
-* `create_document`: Create a new document in FreeCAD.
-* `create_object`: Create a new object in FreeCAD.
-* `edit_object`: Edit an object in FreeCAD.
-* `delete_object`: Delete an object in FreeCAD.
-* `execute_code`: Execute arbitrary Python code in FreeCAD.
-* `insert_part_from_library`: Insert a part from the [parts library](https://github.com/FreeCAD/FreeCAD-library).
-* `get_view`: Get a screenshot of the active view.
-* `get_objects`: Get all objects in a document.
-* `get_object`: Get an object in a document.
-* `get_parts_list`: Get the list of parts in the [parts library](https://github.com/FreeCAD/FreeCAD-library).
-* `run_fem_analysis`: Run the CalculiX solver on an existing `Fem::FemAnalysis` and return summary results (max von Mises stress, max displacement, node count, working directory). Auto-creates a `SolverCcxTools` if the analysis has none. See [`examples/cantilever_fem.py`](examples/cantilever_fem.py) for an end-to-end usage example.
+## RPC methods
 
-## Contributors
+| Category | Methods |
+|---|---|
+| Lifecycle | `ping()` |
+| Documents | `create_document(name)`, `list_documents()`, `save_document(name, file_path=None)`, `close_document(name)`, `reload_document(name)` |
+| Objects | `create_object(doc, obj_data)`, `edit_object(doc, name, obj_data)`, `delete_object(doc, name)`, `get_object(doc, name)`, `get_objects(doc)` |
+| Parts library | `get_parts_list()`, `insert_part_from_library(rel_path)` |
+| Screenshots | `get_active_screenshot(view, width, height, focus_object)` |
+| Code execution | `execute_code(code)`, `execute_code_async(code)` |
+| FEM | `run_fem_analysis(doc, analysis_name, timeout)` |
 
-<a href="https://github.com/neka-nat/freecad-mcp/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=neka-nat/freecad-mcp" />
-</a>
+All methods that touch the document or GUI run on FreeCAD's main thread via the
+`gui_dispatch` module, so concurrent calls serialise safely.
 
-Made with [contrib.rocks](https://contrib.rocks).
+## Security
+
+The server binds to `127.0.0.1` only. There is no authentication — anything that
+can open a local socket on port 9875 can drive FreeCAD, including arbitrary
+Python via `execute_code`. Don't enable remote access by editing this addon
+without thinking carefully about that surface.
+
+## Updating
+
+```bash
+cd ~/devel/freecad-rpc-addon && git pull
+
+# Apply addon changes to running FreeCAD without restart:
+python3 -c "from freecad_rpc import FreeCADClient, recipes; recipes.hot_reload_addon(FreeCADClient())"
+```
+
+Structural changes (renamed/deleted modules) need a FreeCAD restart;
+`importlib.reload` can't handle those.
+
+## License
+
+MIT. See [LICENSE](./LICENSE).

@@ -1,11 +1,11 @@
 """End-to-end smoke test for `run_fem_analysis`.
 
-Drives the FreeCAD MCP RPC server directly over XMLRPC (no Claude / no MCP layer
+Drives the freecad-rpc-addon RPC server directly over XMLRPC (no Claude or MCP layer
 required). Builds a steel cantilever, fixes one face, applies a tip load,
 runs CalculiX, and compares against beam-theory analytics.
 
 Prereqs:
-- FreeCAD is running with the FreeCADMCP addon loaded.
+- FreeCAD is running with the freecad-rpc-addon loaded.
 - "Start RPC Server" was clicked, or auto-start is enabled.
 
 Run:
@@ -27,7 +27,7 @@ import xmlrpc.client
 HOST = "localhost"
 PORT = 9875
 
-DOC = "MCPCantilever"
+DOC = "RPCCantilever"
 BEAM = "Beam"
 ANALYSIS = "Analysis"
 MATERIAL = "Steel"
@@ -65,7 +65,7 @@ def call(server, name, *args):
 def main():
     server = xmlrpc.client.ServerProxy(f"http://{HOST}:{PORT}", allow_none=True)
     if not server.ping():
-        print("RPC server is not responding. Start it from the FreeCAD MCP toolbar.")
+        print("RPC server is not responding. Start it from the FreeCAD MCP toolbar (or just start FreeCAD if you use freecad-rpc-addon auto-start).")
         sys.exit(2)
 
     # Clean slate: drop the document if a previous run left it.
