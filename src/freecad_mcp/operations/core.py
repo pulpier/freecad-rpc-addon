@@ -248,3 +248,37 @@ def reload_document_operation(
         logger.error(f"Failed to reload document: {str(e)}")
         return text_response(f"Failed to reload document: {str(e)}")
 
+
+def save_document_operation(
+    freecad: FreeCADConnection,
+    doc_name: str,
+    file_path: str | None = None,
+) -> ToolResponse:
+    """Save an open document to disk (or save-as if file_path given)."""
+    try:
+        res = freecad.save_document(doc_name, file_path)
+        if res.get("success"):
+            return text_response(
+                f"Document '{res['document_name']}' saved to "
+                f"'{res.get('file_path', '<unknown>')}'."
+            )
+        return text_response(f"Failed to save document: {res.get('error')}")
+    except Exception as e:
+        logger.error(f"Failed to save document: {str(e)}")
+        return text_response(f"Failed to save document: {str(e)}")
+
+
+def close_document_operation(
+    freecad: FreeCADConnection,
+    doc_name: str,
+) -> ToolResponse:
+    """Close an open document. Unsaved changes are discarded."""
+    try:
+        res = freecad.close_document(doc_name)
+        if res.get("success"):
+            return text_response(f"Document '{res['document_name']}' closed.")
+        return text_response(f"Failed to close document: {res.get('error')}")
+    except Exception as e:
+        logger.error(f"Failed to close document: {str(e)}")
+        return text_response(f"Failed to close document: {str(e)}")
+

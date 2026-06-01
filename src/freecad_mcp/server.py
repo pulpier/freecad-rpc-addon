@@ -7,6 +7,7 @@ from mcp.types import ImageContent, TextContent
 
 from .freecad_client import FreeCADConnection
 from .operations import (
+    close_document_operation,
     create_document_operation,
     create_object_operation,
     delete_object_operation,
@@ -21,6 +22,7 @@ from .operations import (
     list_documents_operation,
     reload_document_operation,
     run_fem_analysis_operation,
+    save_document_operation,
 )
 from .prompt_text import ASSET_CREATION_STRATEGY
 from .server_state import ServerState
@@ -455,6 +457,59 @@ def list_documents(ctx: Context) -> list[TextContent]:
         A list of document names.
     """
     return list_documents_operation(get_freecad_connection())
+
+
+@mcp.tool()
+def save_document(
+    ctx: Context, doc_name: str, file_path: str | None = None
+) -> list[TextContent]:
+    """Save an open document to disk.
+
+    Without ``file_path``, performs an in-place save to the document's
+    existing ``FileName`` (equivalent to ⌘+S in the GUI). Fails if the
+    document has never been saved (no associated file yet).
+
+    With ``file_path``, performs Save As: writes a new ``.FCStd`` file
+    and updates ``doc.FileName``. Use this for the first save of a
+    scratch document, or to fork the document to a new location.
+
+    Args:
+        doc_name: Name of the open document to save (must match an
+            entry from ``list_documents``).
+        file_path: Optional absolute path to save to. Recommended
+            extension: ``.FCStd``. If the file already exists it will
+            be overwritten.
+
+    Returns:
+        A message confirming the save (with resolved file path) or
+        describing the failure.
+
+    Examples:
+        Save in place:
+        ```json
+        {"doc_name": "alles"}
+        ```
+        Save a scratch document for the first time:
+        ```json
+        {"doc_name": "scratch_test", "file_path": "/tmp/scratch.FCStd"}
+        ```
+    """
+    return save_document_operation(get_freecad_connection(), doc_name, file_path)
+
+
+@mcp.tool()
+def close_document(ctx: Context, doc_name: str) -> list[TextContent]:
+    """Close an open document. Unsaved changes are discarded — call
+    ``save_document`` first if you need to persist them.
+
+    Args:
+        doc_name: Name of the open document to close.
+
+    Returns:
+        A message confirming the close or describing the failure (e.g.
+        document not loaded).
+    """
+    return close_document_operation(get_freecad_connection(), doc_name)
 
 
 @mcp.tool()

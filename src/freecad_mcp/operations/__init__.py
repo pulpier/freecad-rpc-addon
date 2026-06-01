@@ -1,4 +1,5 @@
 from .core import (
+    close_document_operation,
     create_document_operation,
     create_object_operation,
     delete_object_operation,
@@ -13,9 +14,11 @@ from .core import (
     list_documents_operation,
     reload_document_operation,
     run_fem_analysis_operation,
+    save_document_operation,
 )
 
 __all__ = [
+    "close_document_operation",
     "create_document_operation",
     "create_object_operation",
     "delete_object_operation",
@@ -30,4 +33,5 @@ __all__ = [
     "list_documents_operation",
     "reload_document_operation",
     "run_fem_analysis_operation",
+    "save_document_operation",
 ]

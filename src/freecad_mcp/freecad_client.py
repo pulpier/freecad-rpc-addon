@@ -57,6 +57,12 @@ class FreeCADConnection:
     def reload_document(self, doc_name: str) -> dict[str, Any]:
         return self.server.reload_document(doc_name)
 
+    def save_document(self, doc_name: str, file_path: str | None = None) -> dict[str, Any]:
+        return self.server.save_document(doc_name, file_path)
+
+    def close_document(self, doc_name: str) -> dict[str, Any]:
+        return self.server.close_document(doc_name)
+
     def insert_part_from_library(self, relative_path: str) -> dict[str, Any]:
         return self.server.insert_part_from_library(relative_path)
 

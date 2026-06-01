@@ -98,6 +98,31 @@ class FreeCADRPC:
             return {"success": True, "document_name": doc_name}
         return _err(res)
 
+    def save_document(self, doc_name: str, file_path: str | None = None) -> dict[str, Any]:
+        """Save an open document to disk.
+
+        With no file_path, calls ``doc.save()`` (in-place save to the
+        existing ``doc.FileName``). With a file_path, calls
+        ``doc.saveAs(file_path)`` (writes a new .FCStd and updates
+        ``doc.FileName``). The latter is required for the first save of
+        an unsaved scratch document.
+        """
+        res = dispatch_to_gui(lambda: self._save_document_gui(doc_name, file_path))
+        if isinstance(res, dict):
+            return res
+        if _ok(res):
+            return {"success": True, "document_name": doc_name}
+        return _err(res)
+
+    def close_document(self, doc_name: str) -> dict[str, Any]:
+        """Close an open document. Unsaved changes are discarded — call
+        ``save_document`` first if you need to persist them.
+        """
+        res = dispatch_to_gui(lambda: self._close_document_gui(doc_name))
+        if _ok(res):
+            return {"success": True, "document_name": doc_name}
+        return _err(res)
+
     def run_fem_analysis(self, doc_name: str, analysis_name: str, timeout: int = 600) -> dict[str, Any]:
         """Run the CalculiX solver on an existing Fem::FemAnalysis and return summary results."""
         try:
@@ -329,6 +354,38 @@ class FreeCADRPC:
             f"Document '{doc_name}' reloaded from '{file_path}' via RPC.\n"
         )
         return True
+
+    def _save_document_gui(self, doc_name: str, file_path: str | None = None):
+        if doc_name not in FreeCAD.listDocuments():
+            return f"Document '{doc_name}' is not loaded."
+        doc = FreeCAD.getDocument(doc_name)
+        try:
+            if file_path:
+                doc.saveAs(file_path)
+            else:
+                if not doc.FileName:
+                    return (
+                        f"Document '{doc_name}' has no file path yet "
+                        "(unsaved scratch document); pass file_path "
+                        "to save it for the first time."
+                    )
+                doc.save()
+            FreeCAD.Console.PrintMessage(
+                f"Document '{doc_name}' saved to '{doc.FileName}' via RPC.\n"
+            )
+            return {"success": True, "document_name": doc_name, "file_path": doc.FileName}
+        except Exception as e:
+            return str(e)
+
+    def _close_document_gui(self, doc_name: str):
+        if doc_name not in FreeCAD.listDocuments():
+            return f"Document '{doc_name}' is not loaded."
+        try:
+            FreeCAD.closeDocument(doc_name)
+            FreeCAD.Console.PrintMessage(f"Document '{doc_name}' closed via RPC.\n")
+            return True
+        except Exception as e:
+            return str(e)
 
     def _insert_part_from_library(self, relative_path):
         try:
