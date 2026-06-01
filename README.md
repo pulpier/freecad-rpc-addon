@@ -1,12 +1,12 @@
-# freecad-rpc-addon (fork of neka-nat/freecad-mcp)
+# freecad-rpc-addon
 
 > **Fork notice — 2026-06-01**
 >
-> This is a personal fork that has diverged from the upstream neka-nat/freecad-mcp:
-> the **MCP server layer is no longer the primary interface**. We now use the
-> companion [`freecad-rpc`](https://github.com/pulpier/freecad-rpc) Python
-> library to talk to this add-on's XML-RPC server directly — no MCP, no Claude
-> Desktop required.
+> Originally forked from [neka-nat/freecad-mcp](https://github.com/neka-nat/freecad-mcp)
+> as `pulpier/freecad-mcp`; renamed to `freecad-rpc-addon` to reflect that the
+> MCP server layer is no longer the primary interface. We now use the companion
+> [`freecad-rpc`](https://github.com/pulpier/freecad-rpc) Python library to talk
+> to this add-on's XML-RPC server directly — no MCP, no Claude Desktop required.
 >
 > **Changes vs. upstream:**
 > - **Add-on directory renamed** `FreeCADMCP` → `FreeCADRPC`.
