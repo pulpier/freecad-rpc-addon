@@ -238,11 +238,16 @@ class FreeCADRPC:
         width: int | None = None,
         height: int | None = None,
         focus_object: str | None = None,
+        focus_objects: list | None = None,
     ) -> str:
         """Get a screenshot of the active view as a base64-encoded PNG string.
 
         Returns None if the active view does not support screenshots
         (e.g., TechDraw or Spreadsheet workbench).
+
+        ``view_name="Current"`` keeps the current camera; ``focus_objects``
+        frames the combined bounding box of several objects. See
+        ``view_manager.save_active_screenshot`` for the full contract.
         """
         fd, tmp_path = tempfile.mkstemp(suffix=".png")
         os.close(fd)
@@ -258,7 +263,9 @@ class FreeCADRPC:
                     f"freecad-rpc: view type '{view_type}' does not support screenshots\n"
                 )
                 return False
-            return save_active_screenshot(tmp_path, view_name, width, height, focus_object)
+            return save_active_screenshot(
+                tmp_path, view_name, width, height, focus_object, focus_objects
+            )
 
         try:
             res = dispatch_to_gui(task)
@@ -400,8 +407,11 @@ class FreeCADRPC:
         width: int | None = None,
         height: int | None = None,
         focus_object: str | None = None,
+        focus_objects: list | None = None,
     ):
-        return save_active_screenshot(save_path, view_name, width, height, focus_object)
+        return save_active_screenshot(
+            save_path, view_name, width, height, focus_object, focus_objects
+        )
 
 
 HOST = "127.0.0.1"
