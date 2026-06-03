@@ -1,0 +1,32 @@
+[project]
+name = "freecad-rpc"
+version = "0.2.0"
+description = "FreeCADRPC: in-process XML-RPC add-on for FreeCAD plus its Python client library (one repo)"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "pulpier" },
+]
+keywords = ["freecad", "rpc", "xml-rpc", "cad", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Multimedia :: Graphics :: 3D Modeling",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/pulpier/freecad-rpc-addon"
+Issues = "https://github.com/pulpier/freecad-rpc-addon/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["freecad_rpc"]
